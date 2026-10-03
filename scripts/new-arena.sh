@@ -4,7 +4,7 @@
 set -euo pipefail
 : "${FA_URL:?set FA_URL}" "${ADMIN_TOKEN:?set ADMIN_TOKEN}"
 out=$(curl -sf -X POST -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' "$FA_URL/api/arenas" -d "{\"name\":\"$1\"}")
-remote=$(jq -r .remote <<<"$out") token=$(jq -r .token <<<"$out")
+remote=$(jq -r .remote <<<"$out") token=$(jq -r ".token|@uri" <<<"$out")
 dir=$(mktemp -d)
 cp -R "$2"/. "$dir"
 cd "$dir"

@@ -89,8 +89,9 @@ export class Arena extends DurableObject<Env> {
   }
 
   hit(repo: string, kind: "view" | "conv") {
+    const col = kind === "view" ? "views" : "conv";
     this.sql.exec(
-      `UPDATE variants SET ${kind}=${kind}+1 WHERE repo=? AND status IN ('champion','challenger')`,
+      `UPDATE variants SET ${col}=${col}+1 WHERE repo=? AND status IN ('champion','challenger')`,
       repo,
     );
     if (kind === "conv") this.judge();

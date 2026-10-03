@@ -12,7 +12,7 @@ api() {
 }
 
 out=$(api challengers "$(jq -nc --arg a "$agent" --arg n "$idea" '{agent:$a,note:$n}')")
-repo=$(jq -r .repo <<<"$out") remote=$(jq -r .remote <<<"$out") token=$(jq -r .token <<<"$out")
+repo=$(jq -r .repo <<<"$out") remote=$(jq -r .remote <<<"$out") token=$(jq -r ".token|@uri" <<<"$out")
 dir=$(mktemp -d)
 git clone -q "https://x:$token@${remote#https://}" "$dir"
 cd "$dir"
