@@ -1,11 +1,11 @@
 #!/bin/bash
 # One agent: fork the champion, try one idea, push, enter the arena.
 # usage: scripts/agent.sh <arena> <agent-name> "<idea>"
-# env: FA_URL (Worker URL), AGENT_TOKEN, AGENT_CMD (default: claude -p --model sonnet)
+# env: FA_URL (Worker URL), AGENT_TOKEN, AGENT_CMD (default: claude -p --model sonnet --permission-mode acceptEdits)
 set -euo pipefail
 arena=$1 agent=$2 idea=$3
 : "${FA_URL:?set FA_URL}" "${AGENT_TOKEN:?set AGENT_TOKEN}"
-AGENT_CMD=${AGENT_CMD:-claude -p --model sonnet}
+AGENT_CMD=${AGENT_CMD:-claude -p --model sonnet --permission-mode acceptEdits}
 api() {
   local body=${2:-'{}'}
   curl -sf -X POST -H "authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' "$FA_URL/api/arenas/$arena/$1" -d "$body"
