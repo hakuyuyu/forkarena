@@ -1,0 +1,6 @@
+Shorten the headline to under 8 words
+Cut the form to just an email field
+Add a "free, no credit card" line next to the button
+Lead with time saved: "Your books done in 10 minutes a week"
+Add a short testimonial from a freelance designer
+Make the button say "Start free today"
