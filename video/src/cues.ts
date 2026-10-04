@@ -10,8 +10,8 @@ export const CUES = {
   collapse: at(8), // the pile implodes into one champion
   forks: [at(10), at(10.5), at(11), at(11.5), at(12), at(12.5)], // six clones peel off
   traffic: at(16), // visitors start flowing, drums in
-  retire: [at(22), at(24), at(26), at(28)], // agent-5, agent-1, agent-6, agent-2
-  promote: at(32), // agent-3 takes the crown
+  retire: [at(22), at(24), at(26), at(28)], // agent-5, agent-1, agent-6, agent-4
+  promote: at(32), // agent-2 takes the crown
   payoff: at(40), // conversion numbers
   end: at(48), // logo + repo
   done: at(58),

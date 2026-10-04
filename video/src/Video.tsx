@@ -57,10 +57,10 @@ const LANES = [
   "agent-6",
 ];
 const MAIN = 3,
-  WINNER = 2;
+  WINNER = 1;
 const laneY = (i: number) => 540 + (i - 3) * 112;
 const FORK_ORDER = [2, 4, 1, 5, 0, 6];
-const RETIRE_ORDER = [5, 0, 6, 1];
+const RETIRE_ORDER = [5, 0, 6, 4];
 const born = (i: number) =>
   i === MAIN ? CUES.collapse : CUES.forks[FORK_ORDER.indexOf(i)];
 const retiredAt = (i: number) => {
@@ -112,10 +112,10 @@ const weight = (i: number, t: number) => {
       ? 1 + 5 * p ** 1.5
       : i === MAIN
         ? 1 - 0.3 * p
-        : i === 4
+        : i === 2
           ? 1 + 1.2 * p
           : 1 - 0.5 * p;
-  const after = i === WINNER ? 8 : i === MAIN ? 0.4 : i === 4 ? 1.2 : 0;
+  const after = i === WINNER ? 8 : i === MAIN ? 0.4 : i === 2 ? 1.2 : 0;
   return lerp(before, after, post);
 };
 const shares = (t: number) => {
@@ -127,7 +127,7 @@ const shares = (t: number) => {
 const RATE = 34,
   ENTRY = 0.5,
   RIDE = 0.8;
-const VIS_CONV = [0.05, 0.05, 0.3, 0.07, 0.15, 0.04, 0.05];
+const VIS_CONV = [0.05, 0.3, 0.15, 0.07, 0.05, 0.04, 0.05];
 type Visitor = {
   spawn: number;
   arm: number;
@@ -300,7 +300,7 @@ const Arena: React.FC<{ t: number }> = ({ t }) => {
   const mainDraw = ramp(t, CUES.collapse + 0.1, at(9.5));
   const flip = ramp(t, CUES.promote - 0.04, CUES.promote + 0.12);
 
-  // crown: rests on main, lifts on the anticipation beat, lands on agent-3 on the promote hit
+  // crown: rests on main, lifts on the anticipation beat, lands on agent-2 on the promote hit
   const cu = ramp(t, at(31), CUES.promote, Easing.inOut(Easing.cubic));
   const crownX = NODE_X + 150 * Math.sin(Math.PI * cu);
   const crownY =
@@ -532,15 +532,15 @@ const ArenaHeaders: React.FC<{ t: number }> = ({ t }) => {
         t={t}
         from={CUES.promote}
         to={at(35.3)}
-        text="agent-3 takes the crown"
-        counter="95.6% likely better"
+        text="agent-2 takes the crown"
+        counter="96.2% likely better"
       />
       <Header
         t={t}
         from={at(35.5)}
         to={at(39.4)}
         text="Swapped, not merged"
-        counter="main → agent-3"
+        counter="main → agent-2"
       />
     </g>
   );
@@ -557,7 +557,7 @@ const Payoff: React.FC<{ t: number }> = ({ t }) => {
     });
   const bars = [
     { name: "seed", v: 2.4, x: 700, col: C.gray, g: grow(0.15) },
-    { name: "agent-3", v: 6.1, x: 1060, col: C.orange, g: grow(0.4) },
+    { name: "agent-2", v: 5.5, x: 1060, col: C.orange, g: grow(0.4) },
   ];
   const big = spring({
     frame: Math.max(0, (t - at(44)) * FPS),
@@ -569,7 +569,7 @@ const Payoff: React.FC<{ t: number }> = ({ t }) => {
   return (
     <g opacity={1 - out} transform={`translate(1010 600) scale(${push}) translate(-1010 ${-600 - 60 * out})`}>
       {bars.map((b) => {
-        const h = 560 * (b.v / 6.1) * b.g;
+        const h = 560 * (b.v / 5.5) * b.g;
         return (
           <g key={b.name}>
             <rect
@@ -627,7 +627,7 @@ const Payoff: React.FC<{ t: number }> = ({ t }) => {
           fill={C.orange}
           filter="url(#glow)"
         >
-          2.5×
+          2.3×
         </text>
         <text
           textAnchor="middle"

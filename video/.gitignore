@@ -2,4 +2,10 @@ node_modules/
 out/
 public/soundtrack.wav
 .DS_Store
-public/demo/
+public/demo/*
+!public/demo/forks/
+!public/demo/dash/
+public/demo/dash/*
+!public/demo/dash/002000.png
+public/demo-bad*/
+public/demo-vo/

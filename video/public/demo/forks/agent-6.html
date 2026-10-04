@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tallybook</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d2327;--muted:#5f6b70;--accent:#2f6fde;--line:#dde1e3}
+@media (prefers-color-scheme:dark){:root{--bg:#15191c;--fg:#eef1f2;--muted:#9aa6ab;--accent:#7aa7ff;--line:#2b3236}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.6 system-ui,-apple-system,sans-serif}
+main{max-width:620px;margin:0 auto;padding:56px 16px}
+h1{font-size:34px;line-height:1.2;margin:0 0 12px}
+p{color:var(--muted)}
+form{display:grid;gap:12px;margin-top:28px}
+label{display:grid;gap:4px;font-size:14px}
+input{padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:transparent;color:inherit}
+button{padding:12px;border:0;border-radius:8px;background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+#thanks{display:none;font-weight:600}
+</style></head><body><main>
+<h1>Bookkeeping software that automatically categorizes every transaction for freelancers and small studios</h1>
+<p>Tallybook connects to your bank, sorts income and expenses, and prepares quarterly tax numbers so you can stop doing spreadsheets on Sunday night.</p>
+<form id="f">
+<label>Name<input name="name" required></label>
+<label>Email<input type="email" name="email" required></label>
+<label>Company<input name="company"></label>
+<label>Annual revenue<input name="revenue"></label>
+<button>Start free today</button>
+</form>
+<p id="thanks">Thanks — you're on the list.</p>
+</main>
+<script>document.getElementById('f').addEventListener('submit',function(e){e.preventDefault();this.style.display='none';document.getElementById('thanks').style.display='block'})</script>
+</body></html>
