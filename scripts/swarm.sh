@@ -7,5 +7,6 @@ while IFS= read -r idea; do
   [ -z "$idea" ] && continue
   i=$((i+1))
   scripts/agent.sh "$1" "agent-$i" "$idea" &
+  sleep 1
 done < "$2"
 wait
