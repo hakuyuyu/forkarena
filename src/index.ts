@@ -139,22 +139,25 @@ export class Arena extends DurableObject<Env> {
   }
 
   // Thompson sampling: winners get more traffic; the champion keeps a control share.
-  // A returning visitor stays on their fork; a new one (or one whose fork left the arena) counts as a view.
-  visit(vid: string | null): { repo: string; vid: string } | undefined {
+  // A returning visitor stays on their fork; a new one (or one whose fork left the arena) gets a fresh pick,
+  // recorded by enter() only once a file is served, so 404 scanners don't dilute a fork's rate.
+  visit(vid: string | null): { repo: string; vid: string; fresh: boolean } | undefined {
     const live = this.live();
     if (vid) {
       const row = this.sql
         .exec("SELECT repo FROM visitors WHERE vid=?", vid)
         .toArray()[0];
       if (row && live.some((v) => v.repo === row.repo))
-        return { repo: row.repo as string, vid };
+        return { repo: row.repo as string, vid, fresh: false };
     }
     const repo = choose(live);
     if (!repo) return;
-    const id = crypto.randomUUID();
-    this.sql.exec("INSERT INTO visitors(vid,repo) VALUES (?,?)", id, repo);
+    return { repo, vid: crypto.randomUUID(), fresh: true };
+  }
+
+  enter(vid: string, repo: string) {
+    this.sql.exec("INSERT INTO visitors(vid,repo) VALUES (?,?)", vid, repo);
     this.hit(repo, "views");
-    return { repo, vid: id };
   }
 
   state() {
@@ -205,11 +208,12 @@ export default {
       }
       const visit = await arena.visit(cookie(req, ck));
       if (!visit) return new Response("No variants yet", { status: 404 });
-      const { repo, vid } = visit;
+      const { repo, vid, fresh } = visit;
       const path = parts.slice(2).join("/") || "index.html";
       using r = await env.ARTIFACTS.get(repo);
       const file = await r.readFile({ ref: "main", path });
       if (!file) return new Response("Not found", { status: 404 });
+      if (fresh) await arena.enter(vid, repo);
       const headers = new Headers({
         "content-type": TYPES[path.split(".").pop()!] ?? file.type,
         "cache-control": "no-store",

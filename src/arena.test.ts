@@ -33,7 +33,8 @@ function setup() {
     ARENA: { getByName: () => arena },
     ARTIFACTS: {
       get: async () => ({
-        readFile: async () => new Response(page),
+        readFile: async ({ path }: { path: string }) =>
+          path === "index.html" ? new Response(page) : null,
         [Symbol.dispose]() {},
       }),
     },
@@ -102,6 +103,20 @@ test("a visitor whose fork was retired is reassigned and counted again", async (
   arena.setStatus("seed--a-1", "retired");
   await fetch("/a/tally/", { headers: { cookie } });
   assert.equal(stats().seed[0], before + 1);
+});
+
+test("requests for missing files create no visitor and no view", async () => {
+  const { arena, fetch, stats } = setup();
+  for (const p of ["/a/tally/wp-login.php", "/a/tally/.env", "/a/tally/x/y"]) {
+    const r = await fetch(p);
+    assert.equal(r.status, 404);
+    assert.equal(r.headers.get("set-cookie"), null);
+  }
+  assert.deepEqual(stats(), { seed: [0, 0], "seed--a-1": [0, 0] });
+  assert.equal(
+    arena.sql.exec("SELECT count(*) AS n FROM visitors").toArray()[0].n,
+    0,
+  );
 });
 
 // Fake Artifacts with per-repo heads, so the agent API's fork → push → ready flow can run.
