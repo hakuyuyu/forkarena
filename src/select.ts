@@ -19,6 +19,8 @@ export type Decision = {
 export const MIN_VIEWS = 100;
 export const MAX_VIEWS = 3000;
 const DRAWS = 4000;
+// Share of new visitors held for the champion, so it always reaches MIN_VIEWS and judging can run.
+export const CONTROL = 0.2;
 
 // Marsaglia–Tsang
 export function gammaSample(k: number): number {
@@ -88,4 +90,17 @@ export function decide(champ: Variant, challengers: Variant[]): Decision[] {
     ];
   }
   return out;
+}
+
+// Thompson sampling over live variants, with a fixed control share for the champion.
+export function choose(live: Variant[]): string | undefined {
+  const champ = live.find((v) => v.status === "champion");
+  if (champ && live.length > 1 && Math.random() < CONTROL) return champ.repo;
+  let best: string | undefined,
+    top = -1;
+  for (const v of live) {
+    const s = betaSample(v.conv + 1, v.views - v.conv + 1);
+    if (s > top) [best, top] = [v.repo, s];
+  }
+  return best;
 }

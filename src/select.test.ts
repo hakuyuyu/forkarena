@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decide, pBetter, type Variant } from "./select.ts";
+import { choose, CONTROL, decide, pBetter, type Variant } from "./select.ts";
 
 const v = (
   repo: string,
@@ -56,4 +56,11 @@ test("best of several winners is promoted", () => {
 test("pBetter is near 0.5 for identical stats", () => {
   const p = pBetter(v("a", 400, 20), v("b", 400, 20));
   assert.ok(p > 0.4 && p < 0.6, String(p));
+});
+
+test("champion keeps its control share against a strong challenger", () => {
+  const live = [v("champ", 50, 0, "champion"), v("x", 2000, 130)];
+  let n = 0;
+  for (let i = 0; i < 5000; i++) if (choose(live) === "champ") n++;
+  assert.ok(n / 5000 > CONTROL * 0.8, `champion got ${n}/5000`);
 });

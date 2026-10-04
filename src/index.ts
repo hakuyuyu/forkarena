@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { betaSample, decide, type Variant } from "./select.ts";
+import { choose, decide, type Variant } from "./select.ts";
 import { DASHBOARD } from "./dashboard.ts";
 
 interface Env {
@@ -125,17 +125,11 @@ export class Arena extends DurableObject<Env> {
     }
   }
 
-  // Thompson sampling: each visitor sees a variant drawn from the posterior, so winners get more traffic.
+  // Thompson sampling: winners get more traffic; the champion keeps a control share.
   pick(sticky: string | null): string | undefined {
     const live = this.live();
     if (sticky && live.some((v) => v.repo === sticky)) return sticky;
-    let best: string | undefined,
-      top = -1;
-    for (const v of live) {
-      const s = betaSample(v.conv + 1, v.views - v.conv + 1);
-      if (s > top) [best, top] = [v.repo, s];
-    }
-    return best;
+    return choose(live);
   }
 
   state() {
