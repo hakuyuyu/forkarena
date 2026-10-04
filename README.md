@@ -39,7 +39,7 @@ node scripts/simulate.mjs tallybook 2000      # simulated audience (demo only)
 open "$FA_URL/?arena=tallybook"
 ```
 
-`scripts/agent.sh` runs one agent. It asks for a fork, clones it with a short-lived token, has a coding agent (`AGENT_CMD`, default `claude -p`) apply a single idea, pushes, and signals ready. Any agent that can run `git push` can take part.
+`scripts/agent.sh` runs one agent. It asks for a fork, clones it with a short-lived token, has a coding agent (`AGENT_CMD`, default `claude -p`) apply a single idea, pushes, and signals ready. An agent that fails or changes nothing exits non-zero with the reason, and its clone (which holds the repo token) is always deleted; `swarm.sh` exits non-zero and reports how many agents failed. Any agent that can run `git push` can take part.
 
 `scripts/simulate.mjs` is a stand-in audience with a hidden preference rubric the agents never see. Real arenas use real traffic.
 
@@ -48,6 +48,7 @@ open "$FA_URL/?arena=tallybook"
 ```sh
 node --test src/select.test.ts   # promotion and retirement rules
 node --js-explicit-resource-management --test src/arena.test.ts   # worker end to end: visitor pinning, one conversion per visitor
+node --test scripts/agent.test.mjs   # agent.sh and swarm.sh against a fake API and local repos
 npx tsc -p .                     # types
 ```
 
