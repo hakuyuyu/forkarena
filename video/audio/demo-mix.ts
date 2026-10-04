@@ -45,7 +45,7 @@ const CHORDS = [[45, 52, 57, 60, 64], [41, 48, 53, 57, 64], [43, 50, 55, 59, 62]
   [45, 52, 57, 60, 64], [41, 48, 53, 57, 60], [43, 50, 55, 59, 62], [48, 55, 60, 64, 67], [45, 52, 57, 60, 64]];
 CH.forEach((c, k) => {
   const a = Math.floor(c.start * SR), z = Math.min(N, Math.floor((c.start + c.dur + 1.2) * SR));
-  for (const [v, m] of CHORDS[k].entries()) {
+  for (const [v, m] of CHORDS[k % CHORDS.length].entries()) {
     const f = hz(m), pan = (v / 4) * 1.2 - 0.6, g = 0.05 / (1 + v * 0.25);
     for (let i = a; i < z; i++) {
       const t = (i - a) / SR, rem = (z - i) / SR;

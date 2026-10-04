@@ -5,7 +5,7 @@ import { VO } from "./demo-durations.ts";
 export const DFPS = 60;
 export const LEAD = 0.9; // picture leads the voice into each chapter
 export const TAIL = 1.5; // breath after the last word
-export const ORDER = ["hook", "idea", "arch", "create", "swarm", "traffic", "judge", "gen2", "close"] as const;
+export const ORDER = ["hook", "idea", "arch", "create", "swarm", "agent", "diffs", "traffic", "judge", "gen2", "scale", "run", "close"] as const;
 export type ChapterId = (typeof ORDER)[number];
 
 let start = 0;

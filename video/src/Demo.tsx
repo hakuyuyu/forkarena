@@ -1114,7 +1114,7 @@ const Traffic: Scene = ({ t, d }) => {
   return (
     <AbsoluteFill>
       <Header
-        n={6}
+        n={8}
         title="Live: traffic picks the winner"
         t={t}
         extra={
@@ -1318,7 +1318,7 @@ const Judge: Scene = ({ t, vt }) => {
     XMAX = 0.12;
   return (
     <AbsoluteFill>
-      <Header n={7} title="Live: the judge is 40 lines" t={t} />
+      <Header n={9} title="Live: the judge is 40 lines" t={t} />
       <div style={{ opacity: 1 - real }}>
         <Window
           x={96}
@@ -1499,7 +1499,7 @@ const Gen2: Scene = ({ t, d, vt }) => {
   ];
   return (
     <AbsoluteFill>
-      <Header n={8} title="Generation 2 forks the new champion" t={t} />
+      <Header n={10} title="Generation 2 forks the new champion" t={t} />
       <AbsoluteFill style={{ transform: `translateX(${cam}px)` }}>
         <svg width={2400} height={1080} style={{ position: "absolute" }}>
           <path d="M620 470 H700" stroke={C.line} strokeWidth={4} />
@@ -1711,15 +1711,584 @@ const Close: Scene = ({ t, vt }) => {
   );
 };
 
+// ---------------- 06 agent: one agent, start to finish ----------------
+
+const AGENT_LINES: [string, string, number][] = [
+  ["out=$(api challengers '{agent, note}')", "fork the champion · get a git token", 0.12],
+  ["git clone https://x:$token@$remote $dir", "its own repo, its own working tree", 0.34],
+  ["$AGENT_CMD \"Your one idea: $idea\"", "one idea, nothing else", 0.42],
+  ["git commit -am \"$agent: $idea\"", "one readable commit", 0.52],
+  ["git push origin HEAD:main", "ship", 0.58],
+  ["api challengers/$repo/ready", "enter the arena", 0.64],
+];
+
+const AgentRun: Scene = ({ t, vt }) => {
+  const at = AGENT_LINES.map(([, , f]) => vt(f));
+  const step = at.filter((a) => t > a).length - 1;
+  const check = ramp(t, vt(0.7), vt(0.7) + 0.6, out);
+  const anyone = ramp(t, vt(0.84), vt(0.84) + 0.8, out);
+  const cam = lerp(1, 1.04, ramp(t, 0, vt(1)));
+  return (
+    <AbsoluteFill>
+      <Header n={6} title="Inside one agent" t={t} />
+      <AbsoluteFill style={{ transform: `scale(${cam})` }}>
+        <Window x={96} y={190} w={1000} h={560} title="scripts/agent.sh">
+          <div style={{ fontFamily: mono, fontSize: 21, padding: "26px 0" }}>
+            {AGENT_LINES.map(([code, why], i) => {
+              const on = i === step;
+              const done = i < step;
+              const p = ramp(t, at[i] - 0.4, at[i]);
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: "relative",
+                    padding: "14px 28px 14px 36px",
+                    opacity: lerp(0.25, done ? 0.6 : 1, p),
+                    background: on ? "rgba(246,130,31,0.10)" : "transparent",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 5,
+                      background: C.orange,
+                      opacity: on ? 1 : 0,
+                    }}
+                  />
+                  <div style={{ color: C.ink }}>{code}</div>
+                  <div
+                    style={{
+                      color: on ? C.orange : C.muted,
+                      fontSize: 17,
+                      marginTop: 4,
+                    }}
+                  >
+                    # {why}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Window>
+        <Window
+          x={1150}
+          y={300}
+          w={680}
+          h={340}
+          title="src/index.ts — Worker"
+          style={{
+            opacity: ramp(t, at[5], at[5] + 0.5),
+            transform: `translateY(${(1 - ramp(t, at[5], at[5] + 0.6, out)) * 40}px)`,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: mono,
+              fontSize: 19,
+              padding: 26,
+              lineHeight: 1.7,
+              color: C.muted,
+            }}
+          >
+            <div>head = log(main)[0].hash</div>
+            <div>
+              <span style={{ color: C.blue }}>if</span> (head === v.head)
+            </div>
+            <div style={{ paddingLeft: 28, color: C.red }}>
+              409 No new commit on main
+            </div>
+            <div style={{ color: C.ink }}>setStatus(repo, "challenger")</div>
+            <div
+              style={{
+                marginTop: 22,
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                opacity: check,
+                transform: `scale(${lerp(0.8, 1, check)})`,
+                transformOrigin: "left center",
+              }}
+            >
+              <span style={{ color: C.mint, fontSize: 30 }}>✓</span>
+              <span style={{ color: C.ink }}>main moved</span>
+              <Pill status="challenger" />
+            </div>
+          </div>
+        </Window>
+      </AbsoluteFill>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 830,
+          textAlign: "center",
+          fontFamily: display,
+          fontWeight: 700,
+          fontSize: 54,
+          color: C.ink,
+          opacity: anyone,
+          transform: `translateY(${(1 - anyone) * 30}px)`,
+        }}
+      >
+        If it can <span style={{ fontFamily: mono, color: C.orange }}>git push</span>, it can compete.
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------- 07 diffs: what the agents wrote ----------------
+
+const DIFFS: [string, number, [string, string][]][] = [
+  ["agent-1", 0.18, [["-", "<h1>Bookkeeping software that automatically categorizes every transaction for freelancers…</h1>"], ["+", "<h1>Bookkeeping that categorizes itself</h1>"]]],
+  ["agent-2", 0.25, [["-", "<label>Name<input name=\"name\" required></label>"], ["-", "<label>Company<input name=\"company\"></label>"], ["-", "<label>Annual revenue<input name=\"revenue\"></label>"]]],
+  ["agent-3", 0.33, [["+", "<small>Free, no credit card</small>"]]],
+  ["agent-4", 0.4, [["-", "<h1>Bookkeeping software that automatically…</h1>"], ["+", "<h1>Your books done in 10 minutes a week</h1>"]]],
+  ["agent-6", 0.47, [["-", "<button>Request early access</button>"], ["+", "<button>Start free today</button>"]]],
+  ["agent-5", 0.54, [["+", "<blockquote>“[Paste a real quote from your"], ["+", "  freelance designer customer here.]”"], ["+", "  — [Name], freelance designer</blockquote>"]]],
+];
+
+const Diffs: Scene = ({ t, vt }) => {
+  const focus = ramp(t, vt(0.62), vt(0.62) + 1, io);
+  const human = ramp(t, vt(0.88), vt(0.88) + 0.6, out);
+  return (
+    <AbsoluteFill>
+      <Header
+        n={7}
+        title="Six forks, six one-commit diffs"
+        t={t}
+        extra={
+          <div
+            style={{
+              fontFamily: mono,
+              fontSize: 26,
+              color: C.mint,
+              marginLeft: 26,
+              opacity: human,
+            }}
+          >
+            0 human reviews
+          </div>
+        }
+      />
+      {DIFFS.map(([a, f, lines], i) => {
+        const col = i % 2,
+          row = Math.floor(i / 2);
+        const p = ramp(t, vt(f) - 0.2, vt(f) + 0.5, out);
+        const isQuote = a === "agent-5";
+        const dim = isQuote ? 1 : lerp(1, 0.3, focus);
+        const s = isQuote ? lerp(1, 1.12, focus) : 1;
+        return (
+          <div
+            key={a}
+            style={{
+              position: "absolute",
+              left: 96 + col * 880,
+              top: 180 + row * 260,
+              width: 848,
+              height: 230,
+              background: C.card,
+              border: `1px solid ${isQuote && focus > 0.1 ? C.orange : C.line}`,
+              borderRadius: 14,
+              overflow: "hidden",
+              opacity: p * dim,
+              transform: `translateY(${(1 - p) * 40}px) scale(${s})`,
+              transformOrigin: col ? "right center" : "left center",
+              zIndex: isQuote ? 2 : 1,
+              boxShadow: isQuote
+                ? `0 0 ${60 * focus}px rgba(246,130,31,0.35)`
+                : "0 20px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 16,
+                padding: "14px 22px",
+                borderBottom: `1px solid ${C.line}`,
+                fontFamily: mono,
+                fontSize: 18,
+                background: "#0a1016",
+              }}
+            >
+              <span style={{ color: C.ink }}>{a}</span>
+              <span style={{ color: C.muted }}>index.html</span>
+              <span style={{ color: C.orange, marginLeft: "auto" }}>
+                {IDEAS[a]}
+              </span>
+            </div>
+            <div style={{ padding: "12px 0", fontFamily: mono, fontSize: 17 }}>
+              {lines.map(([sign, code], j) => (
+                <div
+                  key={j}
+                  style={{
+                    padding: "5px 22px",
+                    background:
+                      sign === "+"
+                        ? "rgba(124,255,178,0.08)"
+                        : "rgba(255,107,90,0.08)",
+                    color: sign === "+" ? C.mint : C.red,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    opacity: ramp(t, vt(f) + 0.1 + j * 0.15, vt(f) + 0.4 + j * 0.15),
+                  }}
+                >
+                  {sign} {code}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </AbsoluteFill>
+  );
+};
+
+// ---------------- 11 scale: many agents, one judge ----------------
+
+const LANES = 10;
+const TREE: [string, number, number, string][] = [
+  ["seed", 1280, 250, "dethroned"],
+  ["agent-1", 1130, 420, "retired"],
+  ["agent-2", 1290, 420, "champion"],
+  ["agent-3", 1450, 420, "retired"],
+  ["agent-4", 1610, 420, "retired"],
+  ["agent-5", 1770, 420, "retired"],
+  ["agent-6", 970, 420, "retired"],
+  ["agent-7", 1290, 590, "challenger"],
+];
+const LOG = [
+  "promote agent-2   12/217 beats 6/252, P=0.962",
+  "retire  agent-5   3/139 vs 25/434, P=0.046",
+  "retire  agent-6   4/154 vs 37/600, P=0.048",
+  "retire  agent-1   1/100 vs 41/664, P=0.014",
+  "retire  agent-3   13/376 vs 90/1627, P=0.050",
+  "fork    agent-7   from agent-2",
+];
+
+const Scale: Scene = ({ t, vt }) => {
+  const lanes = ramp(t, vt(0.05), vt(0.25), out);
+  const doIn = ramp(t, vt(0.3), vt(0.3) + 0.8, out);
+  const serial = ramp(t, vt(0.4), vt(0.58), Easing.linear);
+  const tree = ramp(t, vt(0.58), vt(0.58) + 1, out);
+  const vs = ramp(t, vt(0.66), vt(0.66) + 0.8, out);
+  const log = ramp(t, vt(0.76), vt(0.76) + 0.8, out);
+  const DX = 640,
+    DY = 560;
+  return (
+    <AbsoluteFill>
+      <Header n={11} title="Many agents, one judge" t={t} />
+      <svg width={1920} height={1080} style={{ position: "absolute" }}>
+        {Array.from({ length: LANES }, (_, i) => {
+          const y = 210 + i * 76;
+          return (
+            <path
+              key={i}
+              d={`M300 ${y} C 470 ${y}, 470 ${DY}, ${DX - 90} ${DY}`}
+              stroke={C.line}
+              strokeWidth={2.5}
+              fill="none"
+              opacity={doIn}
+            />
+          );
+        })}
+      </svg>
+      {Array.from({ length: LANES }, (_, i) => {
+        const y = 210 + i * 76;
+        const p = ramp(t, vt(0.05) + i * 0.12, vt(0.05) + i * 0.12 + 0.5, out);
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: 96,
+              top: y - 26,
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              opacity: p * lanes,
+              transform: `translateX(${(1 - p) * -40}px)`,
+              fontFamily: mono,
+              fontSize: 17,
+              color: C.muted,
+            }}
+          >
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                border: `2px solid ${C.blue}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: C.ink,
+              }}
+            >
+              {i + 1}
+            </div>
+            <div
+              style={{
+                width: 120,
+                height: 38,
+                borderRadius: 8,
+                background: C.card,
+                border: `1px solid ${C.line}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              repo-{i + 1}
+            </div>
+          </div>
+        );
+      })}
+      {/* requests reach the Durable Object one at a time */}
+      {Array.from({ length: 14 }, (_, k) => {
+        const start = k / 14;
+        const q = Math.min(1, Math.max(0, (serial - start) * 6));
+        if (q <= 0 || q >= 1) return null;
+        const i = k % LANES;
+        const y0 = 210 + i * 76;
+        const x = lerp(300, DX - 90, q);
+        const y = lerp(y0, DY, io(q));
+        return (
+          <div
+            key={k}
+            style={{
+              position: "absolute",
+              left: x - 8,
+              top: y - 8,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              background: C.orange,
+              boxShadow: `0 0 18px ${C.orange}`,
+            }}
+          />
+        );
+      })}
+      <div
+        style={{
+          position: "absolute",
+          left: DX - 90,
+          top: DY - 110,
+          width: 260,
+          height: 220,
+          borderRadius: 22,
+          background: C.card,
+          border: `2px solid ${C.orange}`,
+          boxShadow: `0 0 ${80 * doIn}px rgba(246,130,31,0.35)`,
+          opacity: doIn,
+          transform: `scale(${lerp(0.8, 1, doIn)})`,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 10,
+          fontFamily: mono,
+        }}
+      >
+        <div style={{ fontFamily: display, fontWeight: 700, fontSize: 30, color: C.ink }}>
+          Durable Object
+        </div>
+        <div style={{ fontSize: 18, color: C.muted }}>single-threaded</div>
+        <div style={{ fontSize: 18, color: C.muted }}>sync SQLite judge</div>
+        <div style={{ fontSize: 20, color: C.mint, opacity: ramp(t, vt(0.5), vt(0.5) + 0.5) }}>
+          no races
+        </div>
+      </div>
+      {/* lineage */}
+      <svg
+        width={1920}
+        height={1080}
+        style={{ position: "absolute", opacity: tree }}
+      >
+        {TREE.slice(1).map(([a, x, y]) => {
+          const [px, py] = a === "agent-7" ? [1290, 420] : [1280, 250];
+          return (
+            <path
+              key={a}
+              d={`M${px + 60} ${py + 40} C ${px + 60} ${(py + y) / 2 + 20}, ${x + 60} ${(py + y) / 2 + 20}, ${x + 60} ${y}`}
+              stroke={C.line}
+              strokeWidth={2.5}
+              fill="none"
+            />
+          );
+        })}
+        <path
+          d="M1510 450 C 1480 520, 1400 520, 1385 452"
+          stroke={C.orange}
+          strokeWidth={3}
+          strokeDasharray="8 8"
+          fill="none"
+          opacity={vs}
+        />
+      </svg>
+      {TREE.map(([a, x, y, st]) => (
+        <div
+          key={a}
+          style={{
+            position: "absolute",
+            left: x,
+            top: y,
+            width: 120,
+            height: 40,
+            borderRadius: 8,
+            background: C.card,
+            border: `2px solid ${st === "champion" ? C.mint : st === "challenger" ? C.blue : C.line}`,
+            fontFamily: mono,
+            fontSize: 17,
+            color: st === "retired" || st === "dethroned" ? C.muted : C.ink,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: tree,
+            transform: `translateY(${(1 - tree) * 20}px)`,
+          }}
+        >
+          {a}
+        </div>
+      ))}
+      <div
+        style={{
+          position: "absolute",
+          left: 1370,
+          top: 520,
+          fontFamily: mono,
+          fontSize: 17,
+          color: C.orange,
+          opacity: vs,
+        }}
+      >
+        judged vs today's champion
+      </div>
+      <Window
+        x={960}
+        y={700}
+        w={870}
+        h={300}
+        title="arena log"
+        style={{ opacity: log, transform: `translateY(${(1 - log) * 40}px)` }}
+      >
+        <div
+          style={{
+            fontFamily: mono,
+            fontSize: 18,
+            padding: "16px 24px",
+            lineHeight: 1.75,
+            whiteSpace: "pre",
+          }}
+        >
+          {LOG.map((l, i) => (
+            <div
+              key={i}
+              style={{
+                color: l.startsWith("promote") ? C.mint : l.startsWith("fork") ? C.blue : C.muted,
+                opacity: ramp(t, vt(0.78 + i * 0.03), vt(0.78 + i * 0.03) + 0.3),
+              }}
+            >
+              {l}
+            </div>
+          ))}
+        </div>
+      </Window>
+    </AbsoluteFill>
+  );
+};
+
+// ---------------- 12 run: run it yourself ----------------
+
+const RUN: [string, number][] = [
+  ["npm install", 0.22],
+  ["printf 'ADMIN_TOKEN=…\\nAGENT_TOKEN=…' > .dev.vars", 0.3],
+  ["cf deploy --secrets-file .dev.vars", 0.4],
+  ["scripts/new-arena.sh tallybook seed", 0.52],
+  ["scripts/swarm.sh tallybook ideas.txt", 0.64],
+  ["node scripts/simulate.mjs tallybook 2000", 0.8],
+  ["open \"$FA_URL/?arena=tallybook\"", 0.9],
+];
+
+const Run: Scene = ({ t, vt }) => {
+  const dash = ramp(t, vt(0.92), vt(0.92) + 1.2, out);
+  return (
+    <AbsoluteFill>
+      <Header n={12} title="Run it yourself" t={t} />
+      <Window
+        x={96}
+        y={190}
+        w={1100}
+        h={640}
+        title="zsh — forkarena"
+        style={{
+          transform: `translateX(${lerp(0, -40, dash)}px) scale(${lerp(1, 0.92, dash)})`,
+          transformOrigin: "left top",
+          opacity: lerp(1, 0.55, dash),
+        }}
+      >
+        <div
+          style={{
+            fontFamily: mono,
+            fontSize: 21,
+            padding: 26,
+            lineHeight: 1.65,
+          }}
+        >
+          {RUN.map(([c, f], i) => {
+            const p = ramp(t, vt(f), vt(f) + 0.9, Easing.linear);
+            if (p <= 0) return null;
+            return (
+              <div key={i} style={{ marginBottom: 6 }}>
+                <span style={{ color: C.mint }}>$ </span>
+                <Typed text={c} p={p} />
+              </div>
+            );
+          })}
+        </div>
+      </Window>
+      <div
+        style={{
+          position: "absolute",
+          left: 760,
+          top: 300,
+          width: 1060,
+          height: 596,
+          borderRadius: 14,
+          overflow: "hidden",
+          border: `1px solid ${C.line}`,
+          boxShadow: "0 40px 120px rgba(0,0,0,0.6)",
+          opacity: dash,
+          transform: `translateY(${(1 - dash) * 80}px) rotate(${(1 - dash) * 2}deg)`,
+        }}
+      >
+        <Img
+          src={staticFile("demo/dash/002000.png")}
+          style={{ width: 1060, height: 596, display: "block" }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+};
+
 const SCENES: Record<ChapterId, Scene> = {
   hook: Hook,
   idea: Idea,
   arch: Arch,
   create: Create,
   swarm: Swarm,
+  agent: AgentRun,
+  diffs: Diffs,
   traffic: Traffic,
   judge: Judge,
   gen2: Gen2,
+  scale: Scale,
+  run: Run,
   close: Close,
 };
 

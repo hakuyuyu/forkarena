@@ -38,9 +38,9 @@ The first 0.3s is a still pre-roll of the end card, so feeds that pick an early 
 
 The score is synthesized in `audio/synth.ts`: drums, saw bass and pads, bells, noise risers, impacts and a Schroeder reverb. Mastering uses a tanh soft clip, with its drive found by binary search on a BS.1770 gated loudness meter. The mix was checked by measurement, not by ear: −12.54 LUFS integrated by pyloudnorm, peak −0.27 dBFS, and a spectrogram with risers and impacts at their cue times.
 
-## Demo (3:44 walkthrough)
+## Demo (5:35 walkthrough)
 
-A narrated walkthrough of one real run, `arena-final`, for submissions that want a longer video.
+A narrated walkthrough of one real run, `arena-final`, sized for the competition's 5–10 minute video rule.
 
 ```sh
 FA_URL=... node capture/record.mjs arena-final public/demo   # dashboard screenshots + states.jsonl while the run happens
@@ -52,4 +52,4 @@ npm run demo         # -> out/forkarena-demo.mp4
 
 `src/demo-cues.ts` is the timing source: each chapter lasts lead + its VO length + tail, and both `src/Demo.tsx` and `audio/demo-mix.ts` read it. The narration script is `narration/demo.json`.
 
-Every number on screen comes from that run: the Worker log line `12/217 beats 6/252, P(better)=0.962`, retirements at P < 0.05, and agent-7 (generation 2) at 34/591 vs the champion's 188/3791, P ≈ 0.81 and undecided when the capture ended. Visitors are simulated by `scripts/simulate.mjs`. The traffic chapter is rebuilt from `states.jsonl`; the judge chapter ends on the real dashboard screenshot.
+Every number on screen comes from that run: the Worker log line `12/217 beats 6/252, P(better)=0.962`, retirements at P < 0.05, and agent-7 (generation 2) at 34/591 vs the champion's 188/3791, P ≈ 0.81 and undecided when the capture ended. Visitors are simulated by `scripts/simulate.mjs`. The traffic chapter is rebuilt from `states.jsonl`; the judge chapter ends on the real dashboard screenshot. The diffs chapter quotes each fork's real one-commit change against the seed (agent-5 was asked for a testimonial and left a placeholder instead of inventing one). The scale chapter's log lines are the arena's own decision log.
