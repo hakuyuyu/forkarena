@@ -10,7 +10,7 @@ const script = DASHBOARD.match(/<script>([\s\S]*)<\/script>/)![1];
 async function render(search: string, respond: (url: string) => Response) {
   const els: Record<string, any> = {};
   const el = (id: string) => (els[id] ??= { innerHTML: "", value: "" });
-  el("tree").innerHTML = "Pick an arena.";
+  el("tree").innerHTML = "Pick an arena, e.g. arena-final.";
   const fetched: string[] = [];
   const ctx = {
     URLSearchParams,
@@ -79,7 +79,7 @@ test("renders the lineage tree nested by parent, with rates and escaped notes", 
 test("no arena in the URL fetches nothing", async () => {
   const { tree, fetched } = await render("", () => Response.json({}));
   assert.deepEqual(fetched, []);
-  assert.equal(tree, "Pick an arena.");
+  assert.equal(tree, "Pick an arena, e.g. arena-final.");
 });
 
 test("a bad arena name says so instead of leaving the old view up", async () => {

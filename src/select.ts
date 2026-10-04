@@ -21,6 +21,9 @@ export const MAX_VIEWS = 3000;
 const DRAWS = 4000;
 // Share of new visitors held for the champion, so it always reaches MIN_VIEWS and judging can run.
 export const CONTROL = 0.2;
+// Judging runs after every conversion, so the bar is high: in an A/A simulation (scripts/aa.ts, 3 challengers
+// identical to the champion) 0.95 falsely promoted one in about half of runs; 0.999 does in about 5%.
+export const PROMOTE = 0.999;
 
 // Marsaglia–Tsang
 export function gammaSample(k: number): number {
@@ -69,7 +72,7 @@ export function decide(champ: Variant, challengers: Variant[]): Decision[] {
     const p = pBetter(v, champ);
     const stats = `${v.conv}/${v.views} vs ${champ.conv}/${champ.views}, P(better)=${p.toFixed(3)}`;
     const rate = (x: Variant) => (x.conv + 1) / (x.views + 2);
-    if (p > 0.95) { if (!best || rate(v) > rate(best.v)) best = { v, p }; }
+    if (p > PROMOTE) { if (!best || rate(v) > rate(best.v)) best = { v, p }; }
     else if (p < 0.05)
       out.push({ action: "retire", repo: v.repo, why: `loses: ${stats}` });
     else if (v.views >= MAX_VIEWS)

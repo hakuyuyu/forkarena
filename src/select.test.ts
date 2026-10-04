@@ -64,3 +64,8 @@ test("champion keeps its control share against a strong challenger", () => {
   for (let i = 0; i < 5000; i++) if (choose(live) === "champ") n++;
   assert.ok(n / 5000 > CONTROL * 0.8, `champion got ${n}/5000`);
 });
+
+test("a borderline lead is not promoted", () => {
+  // arena-final's promotion under the old 0.95 bar: P(better) about 0.96.
+  assert.deepEqual(decide(v("champ", 252, 6, "champion"), [v("x", 217, 12)]), []);
+});

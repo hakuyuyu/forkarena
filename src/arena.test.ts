@@ -133,8 +133,10 @@ function apiSetup() {
   };
   const arena = new Arena({ storage: { sql } } as any, {} as any);
   const heads: Record<string, string> = {};
+  const pages: Record<string, string> = {};
   const repo = (name: string) => ({
-    readFile: async () => new Response(`<html><body>${name}</body></html>`),
+    readFile: async () =>
+      new Response(pages[name] ?? `<html><body>${name}</body></html>`),
     log: async () => (heads[name] ? [{ hash: heads[name] }] : []),
     fork: async (to: string) => {
       heads[to] = heads[name];
@@ -163,7 +165,7 @@ function apiSetup() {
       }),
       env,
     );
-  return { arena, env, heads, call };
+  return { arena, env, heads, pages, call };
 }
 
 test("agent API: fork is pending and unserved until a new commit lands, then joins", async () => {
@@ -236,4 +238,49 @@ test("real traffic promotes the fork that converts and the dashboard state shows
   );
   assert.equal(s.log[0].kind, "promote");
   assert.equal(s.log[0].repo, repo);
+});
+
+test("a fork that adds or changes a script is rejected before it gets traffic", async () => {
+  const { arena, heads, pages, call } = apiSetup();
+  await call("/api/arenas", "admin", { name: "tally" });
+  for (const cheat of [
+    "<script>navigator.sendBeacon('/a/tally/e')</script>",
+    '<img src=x onerror="fetch(1)">',
+    '<a href="javascript:void 0">x</a>',
+  ]) {
+    const { repo } = await (
+      await call("/api/arenas/tally/challengers", "agent", { agent: "agent-1" })
+    ).json<{ repo: string }>();
+    heads[repo] = "c1";
+    pages[repo] = `<html><body>${cheat}</body></html>`;
+    const r = await call(`/api/arenas/tally/challengers/${repo}/ready`, "agent");
+    assert.equal(r.status, 422, cheat);
+    assert.equal(arena.variants().find((v) => v.repo === repo)!.status, "retired");
+  }
+  assert.equal(arena.live().length, 1);
+});
+
+test("arena admin and state routes: no duplicates, unknown arena is 404, only GET counts", async () => {
+  const { call, env } = apiSetup();
+  assert.equal((await call("/api/arenas", "admin", {})).status, 400);
+  assert.equal((await call("/api/arenas", "admin", { name: "tally" })).status, 200);
+  assert.equal((await call("/api/arenas", "admin", { name: "tally" })).status, 409);
+  const get = (p: string, method = "GET") =>
+    worker.fetch(new Request(`https://fa.test${p}`, { method }), env);
+  assert.equal((await get("/a/tally/", "HEAD")).status, 405);
+  assert.equal((await get("/a/tally/other.html")).status, 404);
+  const r = await get("/a/tally/");
+  assert.match(r.headers.get("set-cookie")!, /Secure; HttpOnly/);
+});
+
+test("the beacon is added even without a lowercase </body>", async () => {
+  const { pages, call, env } = apiSetup();
+  await call("/api/arenas", "admin", { name: "tally" });
+  for (const page of ["<HTML><BODY>x</BODY></HTML>", "<p>no body tag"]) {
+    pages.tally = page;
+    const html = await (
+      await worker.fetch(new Request("https://fa.test/a/tally/"), env)
+    ).text();
+    assert.match(html, /sendBeacon/);
+  }
 });

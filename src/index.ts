@@ -155,6 +155,12 @@ export class Arena extends DurableObject<Env> {
     return { repo, vid: crypto.randomUUID(), fresh: true };
   }
 
+  // A fork that fails the ready check never gets traffic; the dashboard shows why.
+  reject(repo: string, why: string) {
+    this.setStatus(repo, "retired");
+    this.note("retire", repo, why);
+  }
+
   enter(vid: string, repo: string) {
     this.sql.exec("INSERT INTO visitors(vid,repo) VALUES (?,?)", vid, repo);
     this.hit(repo, "views");
@@ -170,10 +176,22 @@ export class Arena extends DurableObject<Env> {
   }
 }
 
+// Only a real person's form submit converts: script-dispatched submits aren't trusted events.
 const BEACON = (arena: string) => `<script>(function(){var u='/a/${arena}/e';
-function c(){try{navigator.sendBeacon(u,'conv')}catch(e){}}
-document.addEventListener('submit',c,true);
-document.addEventListener('click',function(e){if(e.target.closest&&e.target.closest('[data-convert]'))c()},true)})()</script>`;
+document.addEventListener('submit',function(e){if(e.isTrusted)try{navigator.sendBeacon(u,'conv')}catch(x){}},true)})()</script>`;
+
+// Agents are rewarded for conversions, so a fork may only change copy and layout. Any script, inline
+// handler or javascript: URL that differs from its parent's could fake conversions, and is rejected.
+function scripts(html: string) {
+  return (
+    html.match(/<script[\s\S]*?<\/script\s*>|\son[a-z]+\s*=|javascript:/gi) ?? []
+  ).join("\n");
+}
+
+function withBeacon(html: string, arena: string) {
+  const i = html.search(/<\/body>/i);
+  return i < 0 ? html + BEACON(arena) : html.slice(0, i) + BEACON(arena) + html.slice(i);
+}
 
 function bearer(req: Request, token: string) {
   return !!token && req.headers.get("authorization") === `Bearer ${token}`;
@@ -188,137 +206,160 @@ function cookie(req: Request, name: string) {
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    const url = new URL(req.url);
-    const parts = url.pathname.split("/").filter(Boolean);
-
-    if (url.pathname === "/")
-      return new Response(DASHBOARD, {
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-
-    // Public product traffic: /a/<arena>/<path>
-    if (parts[0] === "a" && parts[1] && NAME.test(parts[1])) {
-      const name = parts[1];
-      const arena = env.ARENA.getByName(name);
-      const ck = `fa_${name}`;
-      if (parts[2] === "e" && req.method === "POST") {
-        const vid = cookie(req, ck);
-        if (vid) await arena.convert(vid);
-        return new Response(null, { status: 204 });
-      }
-      const visit = await arena.visit(cookie(req, ck));
-      if (!visit) return new Response("No variants yet", { status: 404 });
-      const { repo, vid, fresh } = visit;
-      const path = parts.slice(2).join("/") || "index.html";
-      using r = await env.ARTIFACTS.get(repo);
-      const file = await r.readFile({ ref: "main", path });
-      if (!file) return new Response("Not found", { status: 404 });
-      if (fresh) await arena.enter(vid, repo);
-      const headers = new Headers({
-        "content-type": TYPES[path.split(".").pop()!] ?? file.type,
-        "cache-control": "no-store",
-      });
-      headers.append(
-        "set-cookie",
-        `${ck}=${vid}; Path=/a/${name}; Max-Age=2592000; SameSite=Lax`,
-      );
-      if (path.endsWith(".html"))
-        return new Response(
-          (await file.text()).replace("</body>", BEACON(name) + "</body>"),
-          { headers },
-        );
-      return new Response(file, { headers });
+    try {
+      return await route(req, env);
+    } catch (e) {
+      console.error(e);
+      return new Response("Storage unavailable", { status: 502 });
     }
-
-    if (parts[0] !== "api") return new Response("Not found", { status: 404 });
-
-    // GET /api/arenas/<arena> — public state for the dashboard
-    if (
-      req.method === "GET" &&
-      parts[1] === "arenas" &&
-      parts[2] &&
-      NAME.test(parts[2])
-    ) {
-      return Response.json(await env.ARENA.getByName(parts[2]).state());
-    }
-
-    // POST /api/arenas {name} — admin: create the seed repo; caller pushes the first commit
-    if (req.method === "POST" && url.pathname === "/api/arenas") {
-      if (!bearer(req, env.ADMIN_TOKEN))
-        return new Response("Unauthorized", { status: 401 });
-      const { name } = await req.json<{ name: string }>();
-      if (!NAME.test(name)) return new Response("Bad name", { status: 400 });
-      const created = await env.ARTIFACTS.create(name, {
-        setDefaultBranch: "main",
-      });
-      await env.ARENA.getByName(name).add(
-        name,
-        "seed",
-        null,
-        "champion",
-        "",
-        "seed",
-      );
-      return Response.json({ remote: created.remote, token: created.token });
-    }
-
-    // POST /api/arenas/<arena>/challengers {agent, note} — agent: fork the current champion
-    if (
-      req.method === "POST" &&
-      parts[1] === "arenas" &&
-      NAME.test(parts[2]) &&
-      parts[3] === "challengers" &&
-      !parts[4]
-    ) {
-      if (!bearer(req, env.AGENT_TOKEN))
-        return new Response("Unauthorized", { status: 401 });
-      const name = parts[2];
-      const { agent, note } = await req.json<{
-        agent: string;
-        note?: string;
-      }>();
-      if (!NAME.test(agent)) return new Response("Bad agent", { status: 400 });
-      const arena = env.ARENA.getByName(name);
-      const champ = (await arena.state()).variants.find(
-        (v) => v.status === "champion",
-      );
-      if (!champ) return new Response("No champion", { status: 409 });
-      const repo = `${name}--${agent}-${crypto.randomUUID().slice(0, 6)}`;
-      using parent = await env.ARTIFACTS.get(champ.repo);
-      let fork;
-      try {
-        fork = await parent.fork(repo, { defaultBranchOnly: true });
-      } catch (e) {
-        return new Response(`Fork failed: ${e}`, { status: 503 });
-      }
-      const head = (await parent.log({ ref: "main", limit: 1 }))[0]?.hash ?? "";
-      await arena.add(repo, agent, champ.repo, "pending", head, note ?? "");
-      return Response.json({ repo, remote: fork.remote, token: fork.token });
-    }
-
-    // POST /api/arenas/<arena>/challengers/<repo>/ready — agent pushed; enter the arena if main moved
-    if (
-      req.method === "POST" &&
-      parts[1] === "arenas" &&
-      NAME.test(parts[2]) &&
-      parts[3] === "challengers" &&
-      parts[4] &&
-      parts[5] === "ready"
-    ) {
-      if (!bearer(req, env.AGENT_TOKEN))
-        return new Response("Unauthorized", { status: 401 });
-      const arena = env.ARENA.getByName(parts[2]);
-      const v = (await arena.state()).variants.find((x) => x.repo === parts[4]);
-      if (!v || v.status !== "pending")
-        return new Response("Not pending", { status: 409 });
-      using r = await env.ARTIFACTS.get(v.repo);
-      const head = (await r.log({ ref: "main", limit: 1 }))[0]?.hash ?? "";
-      if (head === v.head)
-        return new Response("No new commit on main", { status: 409 });
-      await arena.setStatus(v.repo, "challenger", head);
-      return Response.json({ repo: v.repo, head });
-    }
-
-    return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
+
+async function route(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const parts = url.pathname.split("/").filter(Boolean);
+
+  if (url.pathname === "/")
+    return new Response(DASHBOARD, {
+      headers: { "content-type": "text/html; charset=utf-8" },
+    });
+
+  // Public product traffic: /a/<arena>/<path>
+  if (parts[0] === "a" && parts[1] && NAME.test(parts[1])) {
+    const name = parts[1];
+    const arena = env.ARENA.getByName(name);
+    const ck = `fa_${name}`;
+    if (parts[2] === "e" && req.method === "POST") {
+      const vid = cookie(req, ck);
+      if (vid) await arena.convert(vid);
+      return new Response(null, { status: 204 });
+    }
+    if (req.method !== "GET")
+      return new Response("Method not allowed", { status: 405 });
+    const path = parts.slice(2).join("/") || "index.html";
+    // Only index.html is served as a page, so every page a visitor sees passed the ready check.
+    if (path.endsWith(".html") && path !== "index.html")
+      return new Response("Not found", { status: 404 });
+    const visit = await arena.visit(cookie(req, ck));
+    if (!visit) return new Response("No variants yet", { status: 404 });
+    const { repo, vid, fresh } = visit;
+    using r = await env.ARTIFACTS.get(repo);
+    const file = await r.readFile({ ref: "main", path });
+    if (!file) return new Response("Not found", { status: 404 });
+    if (fresh) await arena.enter(vid, repo);
+    const headers = new Headers({
+      "content-type": TYPES[path.split(".").pop()!] ?? file.type,
+      "cache-control": "no-store",
+    });
+    headers.append(
+      "set-cookie",
+      `${ck}=${vid}; Path=/a/${name}; Max-Age=2592000; SameSite=Lax; Secure; HttpOnly`,
+    );
+    if (path === "index.html")
+      return new Response(withBeacon(await file.text(), name), { headers });
+    return new Response(file, { headers });
+  }
+
+  if (parts[0] !== "api") return new Response("Not found", { status: 404 });
+
+  // GET /api/arenas/<arena> — public state for the dashboard
+  if (
+    req.method === "GET" &&
+    parts[1] === "arenas" &&
+    parts[2] &&
+    NAME.test(parts[2])
+  ) {
+    const s = await env.ARENA.getByName(parts[2]).state();
+    if (!s.variants.length) return new Response("No arena", { status: 404 });
+    return Response.json(s);
+  }
+
+  // POST /api/arenas {name} — admin: create the seed repo; caller pushes the first commit
+  if (req.method === "POST" && url.pathname === "/api/arenas") {
+    if (!bearer(req, env.ADMIN_TOKEN))
+      return new Response("Unauthorized", { status: 401 });
+    const { name } = await req.json<{ name: string }>();
+    if (typeof name !== "string" || !NAME.test(name))
+      return new Response("Bad name", { status: 400 });
+    if ((await env.ARENA.getByName(name).state()).variants.length)
+      return new Response("Arena exists", { status: 409 });
+    const created = await env.ARTIFACTS.create(name, {
+      setDefaultBranch: "main",
+    });
+    await env.ARENA.getByName(name).add(
+      name,
+      "seed",
+      null,
+      "champion",
+      "",
+      "seed",
+    );
+    return Response.json({ remote: created.remote, token: created.token });
+  }
+
+  // POST /api/arenas/<arena>/challengers {agent, note} — agent: fork the current champion
+  if (
+    req.method === "POST" &&
+    parts[1] === "arenas" &&
+    NAME.test(parts[2]) &&
+    parts[3] === "challengers" &&
+    !parts[4]
+  ) {
+    if (!bearer(req, env.AGENT_TOKEN))
+      return new Response("Unauthorized", { status: 401 });
+    const name = parts[2];
+    const { agent, note } = await req.json<{
+      agent: string;
+      note?: string;
+    }>();
+    if (typeof agent !== "string" || !NAME.test(agent)) return new Response("Bad agent", { status: 400 });
+    const arena = env.ARENA.getByName(name);
+    const champ = (await arena.state()).variants.find(
+      (v) => v.status === "champion",
+    );
+    if (!champ) return new Response("No champion", { status: 409 });
+    const repo = `${name}--${agent}-${crypto.randomUUID().slice(0, 6)}`;
+    using parent = await env.ARTIFACTS.get(champ.repo);
+    let fork;
+    try {
+      fork = await parent.fork(repo, { defaultBranchOnly: true });
+    } catch (e) {
+      return new Response(`Fork failed: ${e}`, { status: 503 });
+    }
+    const head = (await parent.log({ ref: "main", limit: 1 }))[0]?.hash ?? "";
+    await arena.add(repo, agent, champ.repo, "pending", head, note ?? "");
+    return Response.json({ repo, remote: fork.remote, token: fork.token });
+  }
+
+  // POST /api/arenas/<arena>/challengers/<repo>/ready — agent pushed; enter the arena if main moved
+  if (
+    req.method === "POST" &&
+    parts[1] === "arenas" &&
+    NAME.test(parts[2]) &&
+    parts[3] === "challengers" &&
+    parts[4] &&
+    parts[5] === "ready"
+  ) {
+    if (!bearer(req, env.AGENT_TOKEN))
+      return new Response("Unauthorized", { status: 401 });
+    const arena = env.ARENA.getByName(parts[2]);
+    const v = (await arena.state()).variants.find((x) => x.repo === parts[4]);
+    if (!v || v.status !== "pending")
+      return new Response("Not pending", { status: 409 });
+    using r = await env.ARTIFACTS.get(v.repo);
+    const head = (await r.log({ ref: "main", limit: 1 }))[0]?.hash ?? "";
+    if (head === v.head)
+      return new Response("No new commit on main", { status: 409 });
+    using p = await env.ARTIFACTS.get(v.parent!);
+    const page = async (x: typeof r) =>
+      scripts((await (await x.readFile({ ref: "main", path: "index.html" }))?.text()) ?? "");
+    if ((await page(r)) !== (await page(p))) {
+      await arena.reject(v.repo, "changed page scripts");
+      return new Response("Fork changed page scripts", { status: 422 });
+    }
+    await arena.setStatus(v.repo, "challenger", head);
+    return Response.json({ repo: v.repo, head });
+  }
+
+  return new Response("Not found", { status: 404 });
+}

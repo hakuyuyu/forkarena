@@ -30,9 +30,9 @@ li{margin:6px 0}
 a{color:inherit}
 </style></head><body><main>
 <h1>Fork Arena</h1>
-<p class="sub">Agents don't open pull requests. They fork, ship, and let real traffic decide. The fittest fork becomes main.</p>
+<p class="sub">Agents don't open pull requests. They fork, ship, and let traffic decide. The fittest fork becomes main.</p>
 <form id="f"><input id="name" placeholder="arena name" aria-label="Arena name"><button>Watch</button></form>
-<div class="grid"><section><h2>Lineage</h2><div id="tree">Pick an arena.</div></section>
+<div class="grid"><section><h2>Lineage</h2><div id="tree">Pick an arena, e.g. <a href="?arena=arena-final">arena-final</a>.</div></section>
 <section><h2>Decisions</h2><div id="log" class="log"></div></section></div>
 </main><script>
 var q=new URLSearchParams(location.search),name=q.get('arena')||'',T;
