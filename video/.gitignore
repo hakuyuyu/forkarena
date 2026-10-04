@@ -2,3 +2,4 @@ node_modules/
 out/
 public/soundtrack.wav
 .DS_Store
+public/demo/
