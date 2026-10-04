@@ -262,6 +262,7 @@ export default {
     if (
       req.method === "POST" &&
       parts[1] === "arenas" &&
+      NAME.test(parts[2]) &&
       parts[3] === "challengers" &&
       !parts[4]
     ) {
@@ -294,6 +295,8 @@ export default {
     // POST /api/arenas/<arena>/challengers/<repo>/ready — agent pushed; enter the arena if main moved
     if (
       req.method === "POST" &&
+      parts[1] === "arenas" &&
+      NAME.test(parts[2]) &&
       parts[3] === "challengers" &&
       parts[4] &&
       parts[5] === "ready"

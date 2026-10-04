@@ -57,7 +57,7 @@ open "$FA_URL/?arena=tallybook"
 
 ```sh
 node --test src/select.test.ts   # promotion and retirement rules
-node --js-explicit-resource-management --test src/arena.test.ts   # worker end to end: visitor pinning, one conversion per visitor
+node --js-explicit-resource-management --test src/arena.test.ts   # worker end to end: visitor pinning, one conversion per visitor, agent API, promotion
 node --test scripts/agent.test.mjs   # agent.sh and swarm.sh against a fake API and local repos
 npx tsc -p .                     # types
 ```

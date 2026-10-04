@@ -103,3 +103,122 @@ test("a visitor whose fork was retired is reassigned and counted again", async (
   await fetch("/a/tally/", { headers: { cookie } });
   assert.equal(stats().seed[0], before + 1);
 });
+
+// Fake Artifacts with per-repo heads, so the agent API's fork → push → ready flow can run.
+function apiSetup() {
+  const db = new DatabaseSync(":memory:");
+  const sql = {
+    exec(q: string, ...binds: unknown[]) {
+      const st = db.prepare(q);
+      const rows = /^\s*select/i.test(q)
+        ? st.all(...(binds as any[]))
+        : (st.run(...(binds as any[])), []);
+      return { toArray: () => rows };
+    },
+  };
+  const arena = new Arena({ storage: { sql } } as any, {} as any);
+  const heads: Record<string, string> = {};
+  const repo = (name: string) => ({
+    readFile: async () => new Response(`<html><body>${name}</body></html>`),
+    log: async () => (heads[name] ? [{ hash: heads[name] }] : []),
+    fork: async (to: string) => {
+      heads[to] = heads[name];
+      return { remote: `https://git.test/${to}`, token: "t" };
+    },
+    [Symbol.dispose]() {},
+  });
+  const env = {
+    ADMIN_TOKEN: "admin",
+    AGENT_TOKEN: "agent",
+    ARENA: { getByName: () => arena },
+    ARTIFACTS: {
+      get: async (name: string) => repo(name),
+      create: async (name: string) => {
+        heads[name] = "c0";
+        return { remote: `https://git.test/${name}`, token: "t" };
+      },
+    },
+  } as any;
+  const call = (path: string, token: string, body: unknown = {}) =>
+    worker.fetch(
+      new Request(`https://fa.test${path}`, {
+        method: "POST",
+        headers: { authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      }),
+      env,
+    );
+  return { arena, env, heads, call };
+}
+
+test("agent API: fork is pending and unserved until a new commit lands, then joins", async () => {
+  const { arena, heads, call } = apiSetup();
+  assert.equal((await call("/api/arenas", "agent", { name: "tally" })).status, 401);
+  assert.equal((await call("/api/arenas", "admin", { name: "tally" })).status, 200);
+  assert.equal(
+    (await call("/api/arenas/tally/challengers", "admin", { agent: "agent-1" })).status,
+    401,
+  );
+  assert.equal(
+    (await call("/api/arenas/tally/challengers", "agent", { agent: "Bad Name" })).status,
+    400,
+  );
+  const r = await call("/api/arenas/tally/challengers", "agent", { agent: "agent-1", note: "idea" });
+  assert.equal(r.status, 200);
+  const { repo } = await r.json<{ repo: string }>();
+  assert.match(repo, /^tally--agent-1-/);
+  assert.deepEqual(
+    arena.variants().map((v) => [v.repo, v.status, v.parent]),
+    [["tally", "champion", null], [repo, "pending", "tally"]],
+  );
+  assert.equal(arena.live().length, 1);
+  const ready = `/api/arenas/tally/challengers/${repo}/ready`;
+  assert.equal((await call(ready, "agent")).status, 409);
+  heads[repo] = "c1";
+  assert.equal((await call(ready, "agent")).status, 200);
+  assert.equal(arena.variants()[1].status, "challenger");
+  assert.equal(arena.variants()[1].head, "c1");
+  assert.equal((await call(ready, "agent")).status, 409);
+});
+
+test("ready and challenger routes reject a bad arena name", async () => {
+  const { call } = apiSetup();
+  for (const path of [
+    "/api/arenas/BAD!/challengers",
+    "/api/arenas/BAD!/challengers/x/ready",
+    "/api/nope/tally/challengers/x/ready",
+  ])
+    assert.equal((await call(path, "agent", { agent: "agent-1" })).status, 404, path);
+});
+
+test("real traffic promotes the fork that converts and the dashboard state shows it", async () => {
+  const { arena, env, heads, call } = apiSetup();
+  await call("/api/arenas", "admin", { name: "tally" });
+  const { repo } = await (
+    await call("/api/arenas/tally/challengers", "agent", { agent: "agent-1" })
+  ).json<{ repo: string }>();
+  heads[repo] = "c1";
+  await call(`/api/arenas/tally/challengers/${repo}/ready`, "agent");
+  const visitors: { cookie: string; repo: string }[] = [];
+  while (arena.variants().some((v) => v.views < 120)) {
+    const r = await worker.fetch(new Request("https://fa.test/a/tally/"), env);
+    visitors.push({
+      cookie: r.headers.get("set-cookie")!.split(";")[0],
+      repo: (await r.text()).match(/<body>([^<]+)/)![1],
+    });
+  }
+  for (const v of visitors.filter((v) => v.repo === repo).slice(0, 20))
+    await worker.fetch(
+      new Request("https://fa.test/a/tally/e", { method: "POST", headers: { cookie: v.cookie } }),
+      env,
+    );
+  const s = await (
+    await worker.fetch(new Request("https://fa.test/api/arenas/tally"), env)
+  ).json<{ variants: { repo: string; status: string }[]; log: { kind: string; repo: string }[] }>();
+  assert.deepEqual(
+    s.variants.map((v) => [v.repo, v.status]),
+    [["tally", "dethroned"], [repo, "champion"]],
+  );
+  assert.equal(s.log[0].kind, "promote");
+  assert.equal(s.log[0].repo, repo);
+});
