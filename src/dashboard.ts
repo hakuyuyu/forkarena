@@ -43,10 +43,10 @@ function node(v,kids){var r=v.views?(100*v.conv/v.views).toFixed(1)+'%':'-';
 return '<li><span class="node"><span class="badge '+v.status+'">'+v.status+'</span><span class="repo">'+esc(v.repo)+'</span><span class="stat">'+esc(v.agent)+' · '+v.conv+'/'+v.views+' ('+r+')</span>'+(v.note?'<span class="note">'+esc(v.note)+'</span>':'')+'</span>'+
 (kids[v.repo]?'<ul>'+kids[v.repo].map(function(c){return node(c,kids)}).join('')+'</ul>':'')+'</li>'}
 function load(){clearTimeout(T);if(!name)return;
-fetch('/api/arenas/'+encodeURIComponent(name)).then(function(r){return r.json()}).then(function(s){
+fetch('/api/arenas/'+encodeURIComponent(name)).then(function(r){if(!r.ok)throw r;return r.json()}).then(function(s){
 var kids={},roots=[];s.variants.forEach(function(v){if(v.parent)(kids[v.parent]=kids[v.parent]||[]).push(v);else roots.push(v)});
 document.getElementById('tree').innerHTML=roots.length?'<p class="stat">Live product: <a href="/a/'+esc(name)+'/">/a/'+esc(name)+'/</a></p><ul class="tree">'+roots.map(function(v){return node(v,kids)}).join('')+'</ul>':'No variants yet.';
 document.getElementById('log').innerHTML=s.log.map(function(l){return '<div><b class="'+(l.kind==='promote'?'champion':l.kind==='retire'?'retired':'')+'">'+esc(l.kind)+'</b> <span class="repo">'+esc(l.repo)+'</span><br><span class="stat">'+new Date(l.ts).toLocaleTimeString()+' · '+esc(l.detail)+'</span></div>'}).join('')||'<span class="stat">Nothing yet.</span>';
-}).finally(function(){T=setTimeout(load,3000)})}
+}).catch(function(){document.getElementById('tree').innerHTML='No arena &quot;'+esc(name)+'&quot;.';document.getElementById('log').innerHTML=''}).finally(function(){T=setTimeout(load,3000)})}
 load();
 </script></body></html>`;
