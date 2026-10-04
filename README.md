@@ -55,6 +55,8 @@ open "$FA_URL/?arena=tallybook"
 
 ## Tests
 
+`npm test` runs everything below (22 tests plus the type check). One suite at a time:
+
 ```sh
 node --test src/select.test.ts   # promotion and retirement rules
 node --js-explicit-resource-management --test src/arena.test.ts   # worker end to end: visitor pinning, one conversion per visitor, no views from 404s, agent API, promotion
