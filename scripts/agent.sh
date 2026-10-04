@@ -1,11 +1,12 @@
 #!/bin/bash
 # One agent: fork the champion, try one idea, push, enter the arena.
 # usage: scripts/agent.sh <arena> <agent-name> "<idea>"
-# env: FA_URL (Worker URL), AGENT_TOKEN, AGENT_CMD (default: claude -p --model sonnet --permission-mode acceptEdits)
+# env: FA_URL (Worker URL), AGENT_TOKEN, AGENT_CMD (default: claude -p --model sonnet --permission-mode acceptEdits --setting-sources project)
 set -euo pipefail
 arena=$1 agent=$2 idea=$3
 : "${FA_URL:?set FA_URL}" "${AGENT_TOKEN:?set AGENT_TOKEN}"
-AGENT_CMD=${AGENT_CMD:-claude -p --model sonnet --permission-mode acceptEdits}
+# --setting-sources project keeps the operator's own hooks and plugins (memory, session history) out of the agent.
+AGENT_CMD=${AGENT_CMD:-claude -p --model sonnet --permission-mode acceptEdits --setting-sources project}
 api() {
   local body=${2:-'{}'}
   curl -sf --retry 3 --retry-all-errors -X POST -H "authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' "$FA_URL/api/arenas/$arena/$1" -d "$body"
@@ -17,7 +18,7 @@ dir=$(mktemp -d)
 git clone -q "https://x:$token@${remote#https://}" "$dir"
 cd "$dir"
 $AGENT_CMD "You are improving a landing page in this directory to get more signups. Your one idea: $idea
-Edit index.html only. Keep the form and its fields working. Make the change, nothing else." >/dev/null
+Edit index.html only. Keep the form and its fields working. Make that one change and nothing else: no other copy, buttons, quotes or claims, even if you know other ideas." >/dev/null
 git -c user.name="$agent" -c user.email="$agent@forkarena" commit -qam "$agent: $idea"
 git push -q origin HEAD:main
 api "challengers/$repo/ready" >/dev/null
