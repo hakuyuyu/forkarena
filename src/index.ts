@@ -11,6 +11,15 @@ interface Env {
 
 const NAME = /^[a-z0-9][a-z0-9-]{1,40}$/;
 
+// Artifacts reports text/plain for text files, so browsers would show the HTML source.
+const TYPES: Record<string, string> = {
+  html: "text/html; charset=utf-8",
+  css: "text/css; charset=utf-8",
+  js: "text/javascript; charset=utf-8",
+  svg: "image/svg+xml",
+  json: "application/json",
+};
+
 // One Arena per product. Holds the champion pointer, live challengers and their traffic stats.
 export class Arena extends DurableObject<Env> {
   sql = this.ctx.storage.sql;
@@ -182,7 +191,7 @@ export default {
       const file = await r.readFile({ ref: "main", path });
       if (!file) return new Response("Not found", { status: 404 });
       const headers = new Headers({
-        "content-type": file.type,
+        "content-type": TYPES[path.split(".").pop()!] ?? file.type,
         "cache-control": "no-store",
       });
       headers.append(
@@ -253,7 +262,12 @@ export default {
       if (!champ) return new Response("No champion", { status: 409 });
       const repo = `${name}--${agent}-${crypto.randomUUID().slice(0, 6)}`;
       using parent = await env.ARTIFACTS.get(champ.repo);
-      const fork = await parent.fork(repo, { defaultBranchOnly: true });
+      let fork;
+      try {
+        fork = await parent.fork(repo, { defaultBranchOnly: true });
+      } catch (e) {
+        return new Response(`Fork failed: ${e}`, { status: 503 });
+      }
       const head = (await parent.log({ ref: "main", limit: 1 }))[0]?.hash ?? "";
       await arena.add(repo, agent, champ.repo, "pending", head, note ?? "");
       return Response.json({ repo, remote: fork.remote, token: fork.token });

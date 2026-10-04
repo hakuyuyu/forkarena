@@ -34,7 +34,7 @@ export FA_URL=https://forkarena.<you>.workers.dev
 set -a; source .dev.vars; set +a
 
 scripts/new-arena.sh tallybook seed           # seed champion
-scripts/swarm.sh tallybook seed/ideas.txt     # 6 agents fork and ship in parallel
+scripts/swarm.sh tallybook ideas.txt          # 6 agents fork and ship in parallel
 node scripts/simulate.mjs tallybook 2000      # simulated audience (demo only)
 open "$FA_URL/?arena=tallybook"
 ```

@@ -8,7 +8,7 @@ arena=$1 agent=$2 idea=$3
 AGENT_CMD=${AGENT_CMD:-claude -p --model sonnet --permission-mode acceptEdits}
 api() {
   local body=${2:-'{}'}
-  curl -sf -X POST -H "authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' "$FA_URL/api/arenas/$arena/$1" -d "$body"
+  curl -sf --retry 3 -X POST -H "authorization: Bearer $AGENT_TOKEN" -H 'content-type: application/json' "$FA_URL/api/arenas/$arena/$1" -d "$body"
 }
 
 out=$(api challengers "$(jq -nc --arg a "$agent" --arg n "$idea" '{agent:$a,note:$n}')")
