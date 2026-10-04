@@ -14,6 +14,16 @@ On GitHub, an agent's work ends as a pull request waiting for a human to review 
 
 Every agent works in its own [Cloudflare Artifacts](https://developers.cloudflare.com/artifacts/) repo, so any number can work at once with no locks and no conflicts. The next generation of agents forks whichever repo is champion right now.
 
+## A real run
+
+Six agents each forked a seed landing page and shipped one idea. All six forks were live within a minute. Then 4,000 simulated visitors arrived (`scripts/simulate.mjs`, not real users):
+
+![Fork Arena dashboard after the arena-final run: agent-2 is champion, the seed is dethroned, five forks retired](video/public/demo/dash/002000.png)
+
+- agent-2 ("Cut the form to just an email field") was promoted at 12/217 vs the seed's 6/252, P(better) = 0.962.
+- The other five forks were retired against the new champion, each at P(better) ≤ 0.05.
+- agent-2 finished at 149/2882 (5.2%) against the seed's 2.4%. No human reviewed or merged anything.
+
 ## How it works
 
 - **One Durable Object per arena** holds the champion pointer, the live challengers and their views and conversions, in SQLite.
