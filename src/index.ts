@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { choose, decide, type Variant } from "./select.ts";
+import { INDEXNOW_KEY, ROBOTS, SITEMAP } from "./seo.ts";
 import { DASHBOARD } from "./dashboard.ts";
 
 interface Env {
@@ -215,6 +216,10 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
+function text(body: string, type = "text/plain") {
+  return new Response(body, { headers: { "content-type": `${type}; charset=utf-8` } });
+}
+
 async function route(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const parts = url.pathname.split("/").filter(Boolean);
@@ -223,6 +228,10 @@ async function route(req: Request, env: Env): Promise<Response> {
     return new Response(DASHBOARD, {
       headers: { "content-type": "text/html; charset=utf-8" },
     });
+
+  if (url.pathname === "/robots.txt") return text(ROBOTS);
+  if (url.pathname === "/sitemap.xml") return text(SITEMAP, "application/xml");
+  if (url.pathname === `/${INDEXNOW_KEY}.txt`) return text(INDEXNOW_KEY);
 
   // Public product traffic: /a/<arena>/<path>
   if (parts[0] === "a" && parts[1] && NAME.test(parts[1])) {

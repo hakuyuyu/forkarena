@@ -284,3 +284,12 @@ test("the beacon is added even without a lowercase </body>", async () => {
     assert.match(html, /sendBeacon/);
   }
 });
+
+test("robots.txt, sitemap.xml and the IndexNow key file are served", async () => {
+  const { env } = apiSetup();
+  const get = (p: string) => worker.fetch(new Request(`https://fa.test${p}`), env);
+  assert.match(await (await get("/robots.txt")).text(), /Sitemap: https:\/\/forkarena\./);
+  assert.match(await (await get("/sitemap.xml")).text(), /<loc>https:\/\/forkarena\.[^<]+\/<\/loc>/);
+  const { INDEXNOW_KEY } = await import("./seo.ts");
+  assert.equal(await (await get(`/${INDEXNOW_KEY}.txt`)).text(), INDEXNOW_KEY);
+});

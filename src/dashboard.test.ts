@@ -90,3 +90,11 @@ test("a bad arena name says so instead of leaving the old view up", async () => 
   assert.match(tree, /No arena &quot;Bad Name&quot;/);
   assert.equal(log, "");
 });
+
+test("dashboard head has SEO tags", () => {
+  assert.match(DASHBOARD, /<title>[^<]{50,60}<\/title>/);
+  assert.match(DASHBOARD, /<meta name="description" content="[^"]{140,160}">/);
+  assert.match(DASHBOARD, /rel="canonical"/);
+  assert.match(DASHBOARD, /application\/ld\+json/);
+  assert.equal(DASHBOARD.match(/<h1/g)!.length, 1);
+});

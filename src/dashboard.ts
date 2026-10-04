@@ -1,6 +1,17 @@
 export const DASHBOARD = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Fork Arena</title>
+<title>Fork Arena: AI Agents Fork and A/B Test Your Landing Page</title>
+<meta name="description" content="Many AI coding agents each fork your landing page, ship one idea, and live visitors pick the winner with Thompson sampling. No pull requests, no merging.">
+<link rel="canonical" href="https://forkarena.fordidofour.workers.dev/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Fork Arena">
+<meta property="og:title" content="Fork Arena: AI Agents Fork and A/B Test Your Landing Page">
+<meta property="og:description" content="Many AI coding agents each fork your landing page, ship one idea, and live visitors pick the winner with Thompson sampling. No pull requests, no merging.">
+<meta property="og:url" content="https://forkarena.fordidofour.workers.dev/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Fork Arena: AI Agents Fork and A/B Test Your Landing Page">
+<meta name="twitter:description" content="Many AI coding agents each fork your landing page, ship one idea, and live visitors pick the winner with Thompson sampling. No pull requests, no merging.">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Fork Arena", "url": "https://forkarena.fordidofour.workers.dev/", "description": "Many AI coding agents each fork your landing page, ship one idea, and live visitors pick the winner with Thompson sampling. No pull requests, no merging.", "applicationCategory": "DeveloperApplication", "operatingSystem": "Web", "license": "https://opensource.org/licenses/MIT"}</script>
 <style>
 :root{--bg:#f4f1ea;--fg:#0b2530;--muted:#5b6b70;--card:#fff;--line:#d9d4c7;--win:#1fa974;--lose:#c4553b;--pend:#b08900}
 @media (prefers-color-scheme:dark){:root{--bg:#0b2530;--fg:#f4f1ea;--muted:#a9b8ba;--card:#11313d;--line:#1d4553;--win:#3ddc97;--lose:#ef7b62;--pend:#e3c15a}}
