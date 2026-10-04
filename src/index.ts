@@ -32,6 +32,10 @@ export class Arena extends DurableObject<Env> {
     this.sql.exec(
       `CREATE TABLE IF NOT EXISTS log(ts INTEGER, kind TEXT, repo TEXT, detail TEXT)`,
     );
+    // One row per visitor, so a variant's views are unique visitors and each converts at most once.
+    this.sql.exec(
+      `CREATE TABLE IF NOT EXISTS visitors(vid TEXT PRIMARY KEY, repo TEXT, conv INTEGER DEFAULT 0)`,
+    );
   }
 
   variants(): Variant[] {
@@ -97,13 +101,22 @@ export class Arena extends DurableObject<Env> {
       this.sql.exec("UPDATE variants SET status=? WHERE repo=?", status, repo);
   }
 
-  hit(repo: string, kind: "view" | "conv") {
-    const col = kind === "view" ? "views" : "conv";
+  hit(repo: string, col: "views" | "conv") {
     this.sql.exec(
       `UPDATE variants SET ${col}=${col}+1 WHERE repo=? AND status IN ('champion','challenger')`,
       repo,
     );
-    if (kind === "conv") this.judge();
+  }
+
+  // Only a known visitor's first conversion counts, so beacon spam can't rig a promotion.
+  convert(vid: string) {
+    const row = this.sql
+      .exec("SELECT repo FROM visitors WHERE vid=? AND conv=0", vid)
+      .toArray()[0];
+    if (!row) return;
+    this.sql.exec("UPDATE visitors SET conv=1 WHERE vid=?", vid);
+    this.hit(row.repo as string, "conv");
+    this.judge();
   }
 
   // Selection replaces review: promote a challenger that beats the champion, retire ones that clearly lose.
@@ -126,10 +139,22 @@ export class Arena extends DurableObject<Env> {
   }
 
   // Thompson sampling: winners get more traffic; the champion keeps a control share.
-  pick(sticky: string | null): string | undefined {
+  // A returning visitor stays on their fork; a new one (or one whose fork left the arena) counts as a view.
+  visit(vid: string | null): { repo: string; vid: string } | undefined {
     const live = this.live();
-    if (sticky && live.some((v) => v.repo === sticky)) return sticky;
-    return choose(live);
+    if (vid) {
+      const row = this.sql
+        .exec("SELECT repo FROM visitors WHERE vid=?", vid)
+        .toArray()[0];
+      if (row && live.some((v) => v.repo === row.repo))
+        return { repo: row.repo as string, vid };
+    }
+    const repo = choose(live);
+    if (!repo) return;
+    const id = crypto.randomUUID();
+    this.sql.exec("INSERT INTO visitors(vid,repo) VALUES (?,?)", id, repo);
+    this.hit(repo, "views");
+    return { repo, vid: id };
   }
 
   state() {
@@ -174,12 +199,13 @@ export default {
       const arena = env.ARENA.getByName(name);
       const ck = `fa_${name}`;
       if (parts[2] === "e" && req.method === "POST") {
-        const repo = cookie(req, ck);
-        if (repo) await arena.hit(repo, "conv");
+        const vid = cookie(req, ck);
+        if (vid) await arena.convert(vid);
         return new Response(null, { status: 204 });
       }
-      const repo = await arena.pick(cookie(req, ck));
-      if (!repo) return new Response("No variants yet", { status: 404 });
+      const visit = await arena.visit(cookie(req, ck));
+      if (!visit) return new Response("No variants yet", { status: 404 });
+      const { repo, vid } = visit;
       const path = parts.slice(2).join("/") || "index.html";
       using r = await env.ARTIFACTS.get(repo);
       const file = await r.readFile({ ref: "main", path });
@@ -190,15 +216,13 @@ export default {
       });
       headers.append(
         "set-cookie",
-        `${ck}=${repo}; Path=/a/${name}; Max-Age=2592000; SameSite=Lax`,
+        `${ck}=${vid}; Path=/a/${name}; Max-Age=2592000; SameSite=Lax`,
       );
-      if (path.endsWith(".html")) {
-        await arena.hit(repo, "view");
+      if (path.endsWith(".html"))
         return new Response(
           (await file.text()).replace("</body>", BEACON(name) + "</body>"),
           { headers },
         );
-      }
       return new Response(file, { headers });
     }
 

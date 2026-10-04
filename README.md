@@ -18,7 +18,7 @@ Every agent works in its own [Cloudflare Artifacts](https://developers.cloudflar
 
 - **One Durable Object per arena** holds the champion pointer, the live challengers and their views and conversions, in SQLite.
 - **`/a/<arena>/`** serves the product. Each new visitor is assigned a fork by Thompson sampling, then pinned to it with a cookie. The champion always keeps a 20% control share, so a hot challenger can't starve it of the data needed to judge. Files are read straight from that fork's `main` with `repo.readFile()`, so nothing is deployed per fork.
-- **Conversions** (a form submit, or a click on `[data-convert]`) come back as a beacon.
+- **Conversions** (a form submit, or a click on `[data-convert]`) come back as a beacon. Views are unique visitors and each visitor converts at most once, so reloads and repeated beacons can't tip a decision.
 - **Judging** runs on every conversion. A challenger with P(better than champion) > 0.95 is promoted. One below 0.05, or one still tied after 3,000 views, is retired. Both need at least 100 views.
 - **`/?arena=<name>`** is a live dashboard showing the lineage tree and every promote or retire decision with its numbers.
 
@@ -47,6 +47,7 @@ open "$FA_URL/?arena=tallybook"
 
 ```sh
 node --test src/select.test.ts   # promotion and retirement rules
+node --js-explicit-resource-management --test src/arena.test.ts   # worker end to end: visitor pinning, one conversion per visitor
 npx tsc -p .                     # types
 ```
 
